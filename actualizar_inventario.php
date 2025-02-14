@@ -11,6 +11,12 @@ if (!isset($conexion)) {
     die("Error: No se pudo conectar a la base de datos.");
 }
 
+function registrarCambio($conexion, $codigo, $colores, $accion) {
+    $sql = "INSERT INTO fechas (codigo, colores, accion) VALUES (?, ?, ?)";
+    $stmt = $conexion->prepare($sql);
+    $stmt->execute([$codigo, $colores, $accion]);
+}
+
 // Agregar nueva mochila
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["agregar_mochila"])) {
     $codigo = $_POST["codigo"];
@@ -18,7 +24,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["agregar_mochila"])) {
     $precio = $_POST["precio"];
     $cantidad = $_POST["cantidad"];
 
-    // Verificar si ya existe el código con los mismos colores
     $sql_check = "SELECT COUNT(*) FROM mochilas WHERE codigo = ? AND colores = ?";
     $stmt_check = $conexion->prepare($sql_check);
     $stmt_check->execute([$codigo, $colores]);
@@ -30,6 +35,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["agregar_mochila"])) {
         $sql = "INSERT INTO mochilas (codigo, colores, precio, cantidad) VALUES (?, ?, ?, ?)";
         $stmt = $conexion->prepare($sql);
         $stmt->execute([$codigo, $colores, $precio, $cantidad]);
+        registrarCambio($conexion, $codigo, $colores, 'agregado');
     }
 }
 
@@ -38,24 +44,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["actualizar_cantidad"])
     $id = $_POST["id"];
     $cantidad_cambio = $_POST["cantidad_cambio"];
 
-    $sql = "UPDATE mochilas SET cantidad = cantidad + ? WHERE id = ?";
-    $stmt = $conexion->prepare($sql);
-    $stmt->execute([$cantidad_cambio, $id]);
+    // Obtener el código y colores de la mochila antes de actualizar
+    $sql_select = "SELECT codigo, colores FROM mochilas WHERE id = ?";
+    $stmt_select = $conexion->prepare($sql_select);
+    $stmt_select->execute([$id]);
+    $mochila = $stmt_select->fetch(PDO::FETCH_ASSOC);
+
+    if ($mochila) {
+        // Actualizar la cantidad
+        $sql_update = "UPDATE mochilas SET cantidad = cantidad + ? WHERE id = ?";
+        $stmt_update = $conexion->prepare($sql_update);
+        $stmt_update->execute([$cantidad_cambio, $id]);
+
+        // Registrar la acción en la tabla 'fechas'
+        $sql_insert = "INSERT INTO fechas (codigo, colores, accion) VALUES (?, ?, 'actualizar')";
+        $stmt_insert = $conexion->prepare($sql_insert);
+        $stmt_insert->execute([$mochila['codigo'], $mochila['colores']]);
+    }
 }
+
 
 // Eliminar mochila
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["eliminar_mochila"])) {
     $id = $_POST["id"];
 
-    $sql = "DELETE FROM mochilas WHERE id = ?";
+    $sql = "SELECT codigo, colores FROM mochilas WHERE id = ?";
     $stmt = $conexion->prepare($sql);
     $stmt->execute([$id]);
+    $mochila = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($mochila) {
+        registrarCambio($conexion, $mochila["codigo"], $mochila["colores"], 'eliminado');
+        $sql_delete = "DELETE FROM mochilas WHERE id = ?";
+        $stmt_delete = $conexion->prepare($sql_delete);
+        $stmt_delete->execute([$id]);
+    }
 }
 
 // Obtener mochilas
 $sql = "SELECT * FROM mochilas";
 $mochilas = $conexion->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 ?>
+
 
 <!DOCTYPE html>
 <html lang="es">

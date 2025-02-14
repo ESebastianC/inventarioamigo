@@ -58,7 +58,7 @@ function generarPDF($codigo = null) {
     $pdf->SetY(50);
 
     // Centramos la tabla horizontalmente con una posición de inicio más a la derecha
-    $pdf->SetX(35);
+    $pdf->SetX(25);
 
     // Encabezados de tabla con fondo gris y centrados
     $pdf->SetFont('Arial', 'B', 10);
@@ -71,11 +71,48 @@ function generarPDF($codigo = null) {
     // Contenido de la tabla con más espacio entre filas
     $pdf->SetFont('Arial', '', 10);
     foreach ($result as $row) {
-        $pdf->SetX(35); // Mantener la tabla centrada
+        $pdf->SetX(25); // Mantener la tabla centrada
         $pdf->Cell(40, 10, $row['codigo'], 1, 0, 'C');
         $pdf->Cell(40, 10, $row['colores'], 1, 0, 'C');
         $pdf->Cell(30, 10, '$' . number_format($row['precio'], 2), 1, 0, 'C');
         $pdf->Cell(30, 10, $row['cantidad'], 1, 1, 'C');
+    }
+
+    // **Espacio antes de la tabla de historial**
+    $pdf->Ln(15); 
+
+    // **Tabla de historial de cambios**
+    $pdf->SetFont('Arial', 'B', 12);
+    $pdf->Cell(190, 10, 'Historial de Cambios', 0, 1, 'C');
+    $pdf->Ln(5);
+
+    $pdf->SetFont('Arial', 'B', 10);
+    $pdf->SetFillColor(200, 200, 200);
+    $pdf->SetX(25);
+    $pdf->Cell(40, 10, 'Codigo', 1, 0, 'C', true);
+    $pdf->Cell(40, 10, 'Colores', 1, 0, 'C', true);
+    $pdf->Cell(50, 10, 'Fecha', 1, 0, 'C', true);
+    $pdf->Cell(50, 10, 'Accion', 1, 1, 'C', true);
+
+    $query_historial = "SELECT * FROM fechas";
+    if ($codigo) {
+        $query_historial .= " WHERE codigo = ?";
+    }
+    $stmt_historial = $conexion->prepare($query_historial);
+    if ($codigo) {
+        $stmt_historial->execute([$codigo]);
+    } else {
+        $stmt_historial->execute();
+    }
+    $result_historial = $stmt_historial->fetchAll(PDO::FETCH_ASSOC);
+
+    $pdf->SetFont('Arial', '', 10);
+    foreach ($result_historial as $row) {
+        $pdf->SetX(25);
+        $pdf->Cell(40, 10, $row['codigo'], 1, 0, 'C');
+        $pdf->Cell(40, 10, $row['colores'], 1, 0, 'C');
+        $pdf->Cell(50, 10, $row['fecha'], 1, 0, 'C');
+        $pdf->Cell(50, 10, $row['accion'], 1, 1, 'C');
     }
 
     $pdf->Ln(10); // Espacio adicional antes del pie de página
@@ -91,6 +128,7 @@ if (isset($_GET['reporte_especifico']) && !empty($_GET['codigo'])) {
     generarPDF($_GET['codigo']);
 }
 ?>
+
 
 
 
